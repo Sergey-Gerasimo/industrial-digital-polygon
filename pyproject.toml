@@ -1,0 +1,18 @@
+[project]
+name = "industrial-digital-polygon"
+version = "0.1.0"
+description = "Backend application for industrial digital polygon"
+authors = [
+    {name = "Sergey-Gerasimo",email = "gerasimovsergey2004@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi (>=0.116.2,<0.117.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
