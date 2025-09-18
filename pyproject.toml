@@ -1,18 +1,24 @@
-[project]
+[tool.poetry]
 name = "industrial-digital-polygon"
 version = "0.1.0"
 description = "Backend application for industrial digital polygon"
-authors = [
-    {name = "Sergey-Gerasimo",email = "gerasimovsergey2004@gmail.com"}
-]
-license = {text = "MIT"}
+authors = ["Sergey-Gerasimo <gerasimovsergey2004@gmail.com>"]
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi (>=0.116.2,<0.117.0)"
-]
+packages = [{include = "app", from = "."}]
 
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = {extras = ["httpx"], version = "^0.110.0"}
+uvicorn = {extras = ["all"], version = "^0.28.0"}
+ipython = "^8.22.2"
+pytest = "^8.1.1"
+pytest-asyncio = "^0.23.6"
+faker = "^24.3.0"
+punq = "^0.7.0"
+httpx = "^0.27.0"
+pydantic-settings = "^2.2.1"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
