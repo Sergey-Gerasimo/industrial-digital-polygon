@@ -112,6 +112,8 @@ class RabbitMQSettings(BaseSettingsWithValidation):
     host: str = Field(default="localhost", alias="RABBITMQ_HOST")
     user: str = Field(default="rabbitmq_user", alias="RABBITMQ_USER")
     password: str = Field(default="rabbitmq_password", alias="RABBITMQ_PASSWORD")
+    timeout: int = Field(default=5, alias="RABBITMQ_TIMEOUT")
+    max_connections: int = Field(default=10, alias="RABBITMQ_MAX_CONNECTIONS")
     port: int = Field(default=5672, alias="RABBITMQ_PORT")
     management_port: int = Field(
         default=15672, alias="RABBITMQ_RABBITMQ_MANAGEMENT_PORT"
