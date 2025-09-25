@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     async_sessionmaker,
 )
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase
 
 from app.infra.config import settings as app_settings
+
 
 async_engine = create_async_engine(
     app_settings.postgres.url_asyncpg,
