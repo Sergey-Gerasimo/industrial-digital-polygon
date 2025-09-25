@@ -41,12 +41,60 @@ class BaseSettingsWithValidation(BaseSettings):
         return self
 
 
+class SecuritySettings(BaseSettingsWithValidation):
+    model_config = SettingsConfigDict(env_prefix="")
+
+    secret_key: str = Field(
+        default="your-secret-key-change-this-in-production", alias="SECRET_KEY"
+    )
+    algorithm: str = Field(default="HS256", alias="ALGORITHM")
+    access_token_expire_minutes: int = Field(
+        default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+
+    def validate_default_values(self, logger=None):
+        if self.secret_key == "your-secret-key-change-this-in-production":
+            warning_msg = (
+                "Настройка SecuritySettings.secret_key использует значение по умолчанию. "
+                "Это небезопасно для продакшн окружения. "
+                "Рекомендуется установить переменную окружения SECRET_KEY"
+            )
+            if logger:
+                logger.warning(warning_msg)
+            else:
+                print(f"WARNING: {warning_msg}")
+
+
 class LogSettings(BaseSettingsWithValidation):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
 
     debug: bool = Field(default=True, alias="DEBUG")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: str = Field(default="json", alias="LOG_FORMAT")
+
+    def validate_default_values(self, logger=None):
+        if self.debug:
+            warning_msg = (
+                "Настройка LogSettings.debug установлена в True. "
+                "Это небезопасно для продакшн окружения. "
+                "Рекомендуется установить переменную окружения DEBUG в False"
+            )
+            if logger:
+                logger.warning(warning_msg)
+            else:
+                print(f"WARNING: {warning_msg}")
+
+        if self.log_level == "INFO":
+            warning_msg = (
+                "Настройка LogSettings.log_level использует значение по умолчанию 'INFO'. "
+                "Рекомендуется установить переменную окружения LOG_LEVEL в 'WARNING' или 'ERROR' для продакшн окружения"
+            )
+            if logger:
+                logger.warning(warning_msg)
+            else:
+                print(f"WARNING: {warning_msg}")
+
+        return super().validate_default_values(logger=logger)
 
 
 class RedisSettings(BaseSettingsWithValidation):
@@ -128,6 +176,7 @@ class RabbitMQSettings(BaseSettingsWithValidation):
 class Settings(BaseSettingsWithValidation):
     pythonpath: str = Field(default="app", alias="PYTHONPATH")
 
+    secrurity: SecuritySettings = Field(default_factory=SecuritySettings)
     log: LogSettings = Field(default_factory=LogSettings)
     api: APISettings = Field(default_factory=APISettings)
     postgres: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -141,6 +190,7 @@ class Settings(BaseSettingsWithValidation):
         self.postgres.validate_default_values(logger=logger)
         self.redis.validate_default_values(logger=logger)
         self.rabbitmq.validate_default_values(logger=logger)
+        self.secrurity.validate_default_values(logger=logger)
         return self
 
     def __str__(self):

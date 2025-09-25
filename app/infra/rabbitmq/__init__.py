@@ -8,57 +8,63 @@
     - RabbitMQRepository: Репозиторий с высокоуровневыми методами для работы с очередями
     - get_rabbitmq_channel: Dependency для FastAPI
 
+Особенности:
+    - Автоматическое восстановление соединений (RobustConnection)
+    - Пул соединений для эффективного использования ресурсов
+    - Поддержка всех типов exchange (DIRECT, FANOUT, TOPIC, HEADERS)
+    - Интеграция с системой логирования приложения
+    - Dependency Injection для FastAPI
+
 Примеры использования:
 
-    Быстрая работа через репозиторий:
+    Быстрая отправка сообщений:
         >>> from infra.rabbitmq import RabbitMQRepository
         >>>
-        >>> # Публикация сообщений
-        >>> await RabbitMQRepository.publish("events", "user.created", {"id": 123})
-        >>> await RabbitMQRepository.publish("logs", "app.error", "Error message")
+        >>> # Отправка в default exchange
+        >>> await RabbitMQRepository.publish("", "my_queue", "Hello World")
         >>>
-        >>> # Работа с очередями
-        >>> queue = await RabbitMQRepository.declare_queue("user_events")
-        >>> await RabbitMQRepository.bind_queue(queue, "events", "user.*")
+        >>> # Отправка в конкретный exchange
+        >>> await RabbitMQRepository.publish("events", "user.created", {"id": 123})
 
-    Использование в FastAPI endpoint:
+    Работа с очередями и exchange:
+        >>> from infra.rabbitmq import RabbitMQRepository
+        >>> import aio_pika
+        >>>
+        >>> # Создание exchange и очереди
+        >>> exchange = await RabbitMQRepository.declare_exchange(
+        ...     "notifications",
+        ...     aio_pika.ExchangeType.FANOUT
+        ... )
+        >>> queue = await RabbitMQRepository.declare_queue("email_notifications")
+        >>> await RabbitMQRepository.bind_queue(queue, "notifications", "")
+
+    Использование в FastAPI:
         >>> from fastapi import Depends
         >>> from infra.rabbitmq import get_rabbitmq_channel
+        >>> import aio_pika
         >>>
         >>> @app.post("/publish/{message}")
         >>> async def publish_message(
         ...     message: str,
-        ...     channel = Depends(get_rabbitmq_channel)
+        ...     channel: aio_pika.RobustChannel = Depends(get_rabbitmq_channel)
         ... ):
-        ...     rabbit_message = aio_pika.Message(body=message.encode())
-        ...     await channel.default_exchange.publish(rabbit_message, routing_key="queue")
-        ...     return {"status": "message sent"}
+        ...     await channel.default_exchange.publish(
+        ...         aio_pika.Message(body=message.encode()),
+        ...         routing_key="test_queue"
+        ...     )
+        ...     return {"status": "sent"}
 
-    Потребление сообщений:
+    Запуск потребителя сообщений:
+        >>> from infra.rabbitmq import RabbitMQRepository
+        >>>
         >>> async def message_handler(message):
-        ...     data = message.body.decode()
-        ...     print(f"Received: {data}")
+        ...     print(f"Received: {message.body.decode()}")
         ...     await message.ack()
         >>>
-        >>> await RabbitMQRepository.consume("user_events", message_handler)
+        >>> # Запуск потребителя в фоновой задаче
+        >>> await RabbitMQRepository.consume("my_queue", message_handler)
 
-    Управление соединением:
-        >>> from infra.rabbitmq import RabbitMQConnection
-        >>>
-        >>> # Получение канала вручную
-        >>> channel = await RabbitMQConnection.get_channel()
-        >>>
-        >>> # Закрытие соединения при завершении приложения
-        >>> await RabbitMQConnection.close()
-
-Особенности:
-    - Singleton подключение для всего приложения
-    - Автоматическое восстановление соединения
-    - Поддержка всех типов RabbitMQ exchange
-    - Durable сообщения и очереди
-    - Интеграция с FastAPI через dependencies
-
-Перед использованием убедитесь, что настройки RabbitMQ указаны в config.settings.
+Настройки подключения берутся из config.settings.rabbitmq.
 
 Version: 1.0.0
 """
