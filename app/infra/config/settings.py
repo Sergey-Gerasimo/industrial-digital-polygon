@@ -5,8 +5,34 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BaseSettingsWithValidation(BaseSettings):
+    """Базовый класс для настроек с валидацией значений по умолчанию.
+
+    Предоставляет метод для проверки использования значений по умолчанию
+    и вывода предупреждений в лог или консоль.
+
+    Attributes:
+        model_config: Конфигурация Pydantic для загрузки из переменных окружения.
+    """
+
     def validate_default_values(self, logger=None):
-        """Проверяет, используются ли значения по умолчанию и выводит предупреждения"""
+        """Проверяет использование значений по умолчанию и выводит предупреждения.
+
+        Итерируется по всем полям модели и проверяет, совпадают ли текущие значения
+        со значениями по умолчанию. Если да, выводит предупреждение с рекомендацией
+        установить соответствующую переменную окружения.
+
+        Args:
+            logger: Опциональный логгер для вывода предупреждений. Если не указан,
+                   используется print.
+
+        Returns:
+            self: Экземпляр класса для цепочки вызовов.
+
+        Example:
+            >>> settings = SecuritySettings()
+            >>> settings.validate_default_values()
+            WARNING: Настройка SecuritySettings.secret_key использует значение по умолчанию...
+        """
         class_name = self.__class__.__name__
 
         for field_name, field_info in self.model_fields.items():
@@ -42,6 +68,21 @@ class BaseSettingsWithValidation(BaseSettings):
 
 
 class SecuritySettings(BaseSettingsWithValidation):
+    """Настройки безопасности приложения.
+
+    Содержит параметры для JWT токенов и шифрования.
+
+    Attributes:
+        secret_key (str): Секретный ключ для подписи JWT токенов.
+        algorithm (str): Алгоритм шифрования JWT токенов.
+        access_token_expire_minutes (int): Время жизни access токена в минутах.
+
+    Example:
+        >>> security = SecuritySettings()
+        >>> print(security.secret_key)
+        'your-secret-key-change-this-in-production'
+    """
+
     model_config = SettingsConfigDict(env_prefix="")
 
     secret_key: str = Field(
@@ -53,6 +94,17 @@ class SecuritySettings(BaseSettingsWithValidation):
     )
 
     def validate_default_values(self, logger=None):
+        """Специфичная валидация для настроек безопасности.
+
+        Особое внимание уделяется проверке секретного ключа, так как использование
+        значения по умолчанию в продакшене представляет угрозу безопасности.
+
+        Args:
+            logger: Опциональный логгер для вывода предупреждений.
+
+        Returns:
+            self: Экземпляр класса для цепочки вызовов.
+        """
         if self.secret_key == "your-secret-key-change-this-in-production":
             warning_msg = (
                 "Настройка SecuritySettings.secret_key использует значение по умолчанию. "
@@ -66,6 +118,16 @@ class SecuritySettings(BaseSettingsWithValidation):
 
 
 class LogSettings(BaseSettingsWithValidation):
+    """Настройки логирования приложения.
+
+    Определяет уровень детализации логов, формат и режим отладки.
+
+    Attributes:
+        debug (bool): Режим отладки (True/False).
+        log_level (str): Уровень логирования (DEBUG, INFO, WARNING, ERROR).
+        log_format (str): Формат логов (json, text).
+    """
+
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
 
     debug: bool = Field(default=True, alias="DEBUG")
@@ -73,6 +135,16 @@ class LogSettings(BaseSettingsWithValidation):
     log_format: str = Field(default="json", alias="LOG_FORMAT")
 
     def validate_default_values(self, logger=None):
+        """Валидация настроек логирования для продакшн окружения.
+
+        Проверяет, что debug режим выключен и установлен адекватный уровень логирования.
+
+        Args:
+            logger: Опциональный логгер для вывода предупреждений.
+
+        Returns:
+            self: Экземпляр класса для цепочки вызовов.
+        """
         if self.debug:
             warning_msg = (
                 "Настройка LogSettings.debug установлена в True. "
@@ -98,6 +170,23 @@ class LogSettings(BaseSettingsWithValidation):
 
 
 class RedisSettings(BaseSettingsWithValidation):
+    """Настройки подключения к Redis.
+
+    Содержит параметры для подключения и настройки пула соединений с Redis.
+
+    Attributes:
+        host (str): Хост Redis сервера.
+        port (int): Порт Redis сервера.
+        db (int): Номер базы данных Redis.
+        max_connections (int): Максимальное количество соединений в пуле.
+        decode_responses (bool): Декодировать ответы из bytes в str.
+        password (Optional[str]): Пароль для аутентификации в Redis.
+        default_timeout (int): Таймаут по умолчанию для операций.
+
+    Properties:
+        url (str): URL для подключения к Redis.
+    """
+
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
     host: str = Field(default="localhost", alias="REDIS_HOST")
@@ -110,6 +199,16 @@ class RedisSettings(BaseSettingsWithValidation):
 
     @property
     def url(self) -> str:
+        """Генерирует URL для подключения к Redis.
+
+        Returns:
+            str: Redis URL в формате redis://[user:password@]host:port/db
+
+        Example:
+            >>> redis = RedisSettings()
+            >>> print(redis.url)
+            'redis://localhost:6379/0'
+        """
         if self.password is None:
             return f"redis://{self.host}:{self.port}/{self.db}"
 
@@ -117,6 +216,25 @@ class RedisSettings(BaseSettingsWithValidation):
 
 
 class DatabaseSettings(BaseSettingsWithValidation):
+    """Настройки подключения к PostgreSQL базе данных.
+
+    Содержит параметры для подключения и настройки пула соединений с PostgreSQL.
+
+    Attributes:
+        db (str): Имя базы данных.
+        user (str): Имя пользователя базы данных.
+        password (str): Пароль пользователя.
+        host (str): Хост базы данных.
+        port (int): Порт базы данных.
+        pool_size (int): Размер пула соединений.
+        max_overflow (int): Максимальное количество соединений сверх pool_size.
+        echo (bool): Логировать SQL запросы.
+
+    Properties:
+        url_asyncpg (str): URL для подключения через asyncpg.
+        url (str): Стандартный URL для подключения.
+    """
+
     model_config = SettingsConfigDict(env_prefix="POSTGRES_")
 
     db: str = Field(default="postgres", alias="POSTGRES_DB")
@@ -130,15 +248,39 @@ class DatabaseSettings(BaseSettingsWithValidation):
 
     @property
     def url_asyncpg(self) -> str:
-        """URL для подключения к PostgreSQL через asyncpg."""
+        """Генерирует URL для подключения к PostgreSQL через asyncpg.
+
+        Returns:
+            str: PostgreSQL URL в формате postgresql+asyncpg://user:password@host:port/db
+
+        Example:
+            >>> db = DatabaseSettings()
+            >>> print(db.url_asyncpg)
+            'postgresql+asyncpg://postgres:password@localhost:5432/postgres'
+        """
         return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
 
     def url(self) -> str:
-        """URL для подключения к PostgreSQL."""
+        """Генерирует стандартный URL для подключения к PostgreSQL.
+
+        Returns:
+            str: PostgreSQL URL в формате postgresql://user:password@host:port/db
+        """
         return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
 
 
 class APISettings(BaseSettingsWithValidation):
+    """Настройки API сервера.
+
+    Определяет параметры запуска и конфигурации HTTP сервера.
+
+    Attributes:
+        port (int): Порт для запуска сервера.
+        host (str): Хост для запуска сервера.
+        reload (bool): Автоматическая перезагрузка при изменении кода.
+        allowed_hosts (List[str]): Список разрешенных хостов.
+    """
+
     model_config = SettingsConfigDict(env_prefix="API_")
 
     port: int = Field(default=8080, alias="API_PORT")
@@ -149,12 +291,44 @@ class APISettings(BaseSettingsWithValidation):
     @field_validator("allowed_hosts", mode="before")
     @classmethod
     def parse_allowed_hosts(cls, v):
+        """Валидатор для парсинга списка хостов из строки.
+
+        Позволяет указывать хосты через запятую в переменной окружения.
+
+        Args:
+            v: Значение для валидации (str или list).
+
+        Returns:
+            List[str]: Список хостов.
+
+        Example:
+            >>> APISettings.parse_allowed_hosts("localhost,127.0.0.1")
+            ['localhost', '127.0.0.1']
+        """
         if isinstance(v, str):
             return [host.strip() for host in v.split(",")]
         return v
 
 
 class RabbitMQSettings(BaseSettingsWithValidation):
+    """Настройки подключения к RabbitMQ.
+
+    Содержит параметры для подключения к брокеру сообщений RabbitMQ.
+
+    Attributes:
+        host (str): Хост RabbitMQ сервера.
+        user (str): Имя пользователя RabbitMQ.
+        password (str): Пароль пользователя.
+        timeout (int): Таймаут подключения.
+        max_connections (int): Максимальное количество соединений.
+        port (int): Порт RabbitMQ сервера.
+        management_port (int): Порт веб-интерфейса управления.
+        default_queue (str): Имя очереди по умолчанию.
+
+    Properties:
+        url (str): URL для подключения к RabbitMQ.
+    """
+
     model_config = SettingsConfigDict(env_prefix="RABBITMQ_")
 
     host: str = Field(default="localhost", alias="RABBITMQ_HOST")
@@ -170,10 +344,34 @@ class RabbitMQSettings(BaseSettingsWithValidation):
 
     @property
     def url(self) -> str:
+        """Генерирует URL для подключения к RabbitMQ.
+
+        Returns:
+            str: RabbitMQ URL в формате amqp://user:password@host:port//
+
+        Example:
+            >>> rabbit = RabbitMQSettings()
+            >>> print(rabbit.url)
+            'amqp://rabbitmq_user:rabbitmq_password@localhost:5672//'
+        """
         return f"amqp://{self.user}:{self.password}@{self.host}:{self.port}//"
 
 
 class Settings(BaseSettingsWithValidation):
+    """Главный класс настроек приложения.
+
+    Объединяет все группы настроек в единую конфигурацию.
+
+    Attributes:
+        pythonpath (str): Путь к Python приложению.
+        secrurity (SecuritySettings): Настройки безопасности.
+        log (LogSettings): Настройки логирования.
+        api (APISettings): Настройки API.
+        postgres (DatabaseSettings): Настройки базы данных.
+        redis (RedisSettings): Настройки Redis.
+        rabbitmq (RabbitMQSettings): Настройки RabbitMQ.
+    """
+
     pythonpath: str = Field(default="app", alias="PYTHONPATH")
 
     secrurity: SecuritySettings = Field(default_factory=SecuritySettings)
@@ -184,6 +382,16 @@ class Settings(BaseSettingsWithValidation):
     rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
 
     def validate_default_values(self, logger=None):
+        """Рекурсивная валидация всех вложенных настроек.
+
+        Вызывает validate_default_values для всех дочерних классов настроек.
+
+        Args:
+            logger: Опциональный логгер для вывода предупреждений.
+
+        Returns:
+            self: Экземпляр класса для цепочки вызовов.
+        """
         super().validate_default_values(logger=logger)
         self.log.validate_default_values(logger=logger)
         self.api.validate_default_values(logger=logger)
@@ -228,3 +436,14 @@ class Settings(BaseSettingsWithValidation):
 
 
 settings = Settings()
+"""Глобальный экземпляр настроек приложения.
+
+Используется для доступа к настройкам из любого модуля приложения.
+
+Example:
+    >>> from settings import settings
+    >>> print(settings.api.port)
+    8080
+    >>> print(settings.postgres.url_asyncpg)
+    'postgresql+asyncpg://postgres:password@localhost:5432/postgres'
+"""
