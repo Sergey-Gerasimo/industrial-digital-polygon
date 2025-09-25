@@ -1,5 +1,5 @@
 from pydantic import Field, model_validator
-from typing import List
+from typing import List, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,8 +54,18 @@ class RedisSettings(BaseSettingsWithValidation):
 
     host: str = Field(default="localhost", alias="REDIS_HOST")
     port: int = Field(default=6379, alias="PORT")
-    password: str = Field(default="redis123", alias="REDIS_PASSWORD")
+    db: int = Field(default=0, alias="REDIS_DB")
+    max_connections: int = Field(default=10, alias="REDIS_MAX_CONNECTIONS")
+    decode_responses: bool = Field(default=True, alias="REDIS_DECODE_RESPONSES")
+    password: Optional[str] = Field(default=None, alias="REDIS_PASSWORD")
     default_timeout: int = Field(default=300, alias="REDIS_DEFAULT_TIMEOUT")
+
+    @property
+    def url(self) -> str:
+        if self.password is None:
+            return f"redis://{self.host}:{self.port}/{self.db}"
+
+        return f"redis://:{self.password}@{self.host}:{self.port}/{self.db}"
 
 
 class DatabaseSettings(BaseSettingsWithValidation):
@@ -152,6 +162,9 @@ class Settings(BaseSettingsWithValidation):
             "   port: {self.redis.port}\n"
             "   password: {self.redis.password}\n"
             "   default_timeout: {self.redis.default_timeout}\n"
+            "   db: {self.redis.db}\n"
+            "   max_connections: {self.redis.max_connections}\n"
+            "   decode_responses: {self.redis.decode_responses}\n"
             "RabbitMQ\n"
             "   host: {self.rabbitmq.host}\n"
             "   port: {self.rabbitmq.port}\n"
