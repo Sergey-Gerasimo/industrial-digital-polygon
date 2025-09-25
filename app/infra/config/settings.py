@@ -71,6 +71,10 @@ class DatabaseSettings(BaseSettingsWithValidation):
     echo: bool = Field(default=False, alias="POSTGRES_ECHO")
 
     @property
+    def url_asyncpg(self) -> str:
+        """URL для подключения к PostgreSQL через asyncpg."""
+        return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
+
     def url(self) -> str:
         """URL для подключения к PostgreSQL."""
         return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
