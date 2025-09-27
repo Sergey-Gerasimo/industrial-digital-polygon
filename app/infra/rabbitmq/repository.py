@@ -145,13 +145,17 @@ class RabbitMQRepository:
         )
 
         if exchange:
-            # Объявляем exchange (если не существует) и публикуем
-            exchange_obj = await channel.declare_exchange(
-                exchange, exchange_type, durable=True
-            )
+            app_logger.debug(f"Publishing to exchange '{exchange}'")
+            try:
+                exchange_obj = await channel.get_exchange(name=exchange, ensure=False)
+            except aio_pika.exceptions.ChannelNotFoundEntity:
+                exchange_obj = await channel.declare_exchange(
+                    exchange, exchange_type, durable=True
+                )
             await exchange_obj.publish(rabbit_message, routing_key=routing_key)
         else:
             # Используем default exchange
+            app_logger.debug("Publishing to default exchange")
             await channel.default_exchange.publish(
                 rabbit_message, routing_key=routing_key
             )
@@ -244,10 +248,19 @@ class RabbitMQRepository:
             ...     exchange_type=aio_pika.ExchangeType.FANOUT
             ... )
         """
-        channel = await RabbitMQConnection.get_channel()
-        exchange_obj = await channel.declare_exchange(
-            exchange, exchange_type, durable=True
-        )
+
+        try:
+            channel = await RabbitMQConnection.get_channel()
+            exchange_obj = await channel.get_exchange(name=exchange, ensure=True)
+
+        except aio_pika.exceptions.ChannelNotFoundEntity:
+            app_logger.warning(
+                f"Exchange '{exchange}' does not exist, declaring new one"
+            )
+            channel = await RabbitMQConnection.get_channel()
+            exchange_obj = await channel.declare_exchange(
+                exchange, exchange_type, durable=True
+            )
         await queue.bind(exchange_obj, routing_key)
         app_logger.info(
             f"Queue '{queue.name}' bound to exchange '{exchange}' with routing key '{routing_key}'"
@@ -296,20 +309,31 @@ class RabbitMQRepository:
             ...     await message.ack()
             >>> await RabbitMQRepository.consume("json_messages", json_handler)
         """
-        channel = await RabbitMQConnection.get_channel()
-        queue = await channel.declare_queue(queue_name, durable=True)
+        try:
+            channel = await RabbitMQConnection.get_channel()
+            queue = await channel.declare_queue(queue_name, passive=True)
 
-        app_logger.info(
-            f"Starting consumer for queue '{queue_name}' (auto_ack: {auto_ack})"
-        )
+        except aio_pika.exceptions.ChannelNotFoundEntity:
+            app_logger.warning(
+                f"Queue '{queue_name}' does not exist, declaring new one"
+            )
+            channel = await RabbitMQConnection.get_channel()
+            queue = await channel.declare_queue(
+                queue_name, durable=True, auto_delete=False
+            )
 
         async with queue.iterator() as queue_iter:
+            app_logger.debug(f"Consumer is now listening to queue '{queue_name}'")
             async for message in queue_iter:
                 try:
+                    app_logger.debug(f"Processing message from queue '{queue_name}'")
                     await callback(message)
+
                     if not auto_ack:
                         await message.ack()
-                    app_logger.debug(f"Message processed from queue '{queue_name}'")
+                    app_logger.debug(
+                        f"Message processed from queue '{queue_name}', maessage: {message.body.decode()}"
+                    )
                 except Exception as e:
                     app_logger.error(
                         f"Error processing message from queue '{queue_name}': {e}"

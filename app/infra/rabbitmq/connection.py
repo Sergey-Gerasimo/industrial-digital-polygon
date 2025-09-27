@@ -1,3 +1,4 @@
+import asyncio
 import aio_pika
 from typing import AsyncGenerator, Optional
 from infra.config.settings import settings
@@ -23,6 +24,7 @@ class RabbitMQConnection:
 
     _connection: Optional[aio_pika.RobustConnection] = None
     _channel: Optional[aio_pika.RobustChannel] = None
+    _lock = asyncio.Lock()
 
     @classmethod
     async def get_connection(cls) -> aio_pika.RobustConnection:
@@ -42,12 +44,16 @@ class RabbitMQConnection:
             >>> print(f"Connected to RabbitMQ: {not connection.is_closed}")
         """
 
-        if cls._connection is None or cls._connection.is_closed:
-            cls._connection = await aio_pika.connect_robust(
-                settings.rabbitmq.url, timeout=settings.rabbitmq.timeout
-            )
-            app_logger.info("RabbitMQ connection established")
-        return cls._connection
+        if cls._connection is not None and not cls._connection.is_closed:
+            return cls._connection
+
+        async with cls._lock:
+            if cls._connection is None or cls._connection.is_closed:
+                cls._connection = await aio_pika.connect_robust(
+                    settings.rabbitmq.url, timeout=settings.rabbitmq.timeout
+                )
+                app_logger.info("RabbitMQ connection established")
+            return cls._connection
 
     @classmethod
     async def get_channel(cls) -> aio_pika.RobustChannel:
@@ -64,12 +70,21 @@ class RabbitMQConnection:
             >>> queue = await channel.declare_queue("my_queue")
             >>> await queue.purge()
         """
+        if cls._channel is not None and not cls._channel.is_closed:
+            return cls._channel
 
-        if cls._channel is None or cls._channel.is_closed:
-            connection = await cls.get_connection()
-            cls._channel = await connection.channel()
-            app_logger.info("RabbitMQ channel created")
-        return cls._channel
+        async with cls._lock:
+            if cls._channel is None or cls._channel.is_closed:
+                if cls._connection is None or cls._connection.is_closed:
+                    cls._connection = await aio_pika.connect_robust(
+                        settings.rabbitmq.url, timeout=settings.rabbitmq.timeout
+                    )
+
+                connection = cls._connection
+                cls._channel = await connection.channel()
+                app_logger.info("RabbitMQ channel created")
+
+            return cls._channel
 
     @classmethod
     async def close(cls):
@@ -86,7 +101,9 @@ class RabbitMQConnection:
             await cls._channel.close()
         if cls._connection:
             await cls._connection.close()
+
         app_logger.info("RabbitMQ connection closed")
+        app_logger.info("RabbitMQ channel closed")
 
 
 async def get_rabbitmq_channel() -> AsyncGenerator[aio_pika.RobustChannel, None]:

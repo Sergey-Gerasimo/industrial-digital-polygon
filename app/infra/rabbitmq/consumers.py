@@ -4,7 +4,7 @@ from infra.config import app_logger
 
 
 async def simulation_consumer(message: aio_pika.IncomingMessage):
-    """Обработчик для email уведомлений."""
+    """Обработчик для симуляции системы."""
     async with message.process():
         try:
             data = json.loads(message.body.decode())

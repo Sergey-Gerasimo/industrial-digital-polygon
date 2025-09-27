@@ -35,7 +35,7 @@ class BaseSettingsWithValidation(BaseSettings):
         """
         class_name = self.__class__.__name__
 
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in self.__class__.model_fields.items():
             current_value = getattr(self, field_name)
 
             # Получаем значение по умолчанию из Field
