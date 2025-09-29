@@ -22,6 +22,7 @@ loguru = "^0.7.3"
 sqlalchemy = "^2.0.43"
 redis = "^6.4.0"
 aio-pika = "^9.5.7"
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 
 [build-system]
 requires = ["poetry-core"]
