@@ -6,7 +6,7 @@ from domain.values.Username import UserName
 from domain.values.hashed_password import HashedPasswordSHA256
 
 
-@dataclass(frozen=True)
+@dataclass()
 class User:
     id: str
     username: UserName
@@ -14,15 +14,15 @@ class User:
     is_active: bool
 
 
-class PlayerRole(Enum, str):
+class PlayerRole(str, Enum):
     PRODUCTION = "production"
     PROCUREMENT = "procurement"
     COMMERCE = "commerce"
     ENGINEERING = "engineering"
 
 
-@dataclass(frozen=True)
+@dataclass()
 class Player:
-    player_id: str = field(default_factory=lambda: str(uuid()))
     user_id: str
     role: PlayerRole
+    player_id: str = field(default_factory=lambda: str(uuid.uuid4()))
