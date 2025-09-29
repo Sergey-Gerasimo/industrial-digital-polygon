@@ -5,6 +5,7 @@ from infra.database.repositories.user_reposytory import UserRepository
 from domain.entities.base.user import User
 from domain.values.Username import UserName
 from domain.values.hashed_password import HashedPasswordSHA256
+from domain.entities.base.user import UserRole as DomainUserRole
 
 
 @pytest.mark.integration
@@ -17,6 +18,7 @@ class TestUserRepositoryIntegration:
             id="",
             username=UserName("getbyid"),
             password_hash=HashedPasswordSHA256("f" * 64),
+            role=DomainUserRole.USER,
             is_active=True,
         )
 
@@ -34,6 +36,7 @@ class TestUserRepositoryIntegration:
             id="",
             username=UserName("charlie"),
             password_hash=HashedPasswordSHA256("c" * 64),
+            role=DomainUserRole.USER,
             is_active=True,
         )
 
@@ -51,6 +54,7 @@ class TestUserRepositoryIntegration:
             id="",
             username=UserName("dana"),
             password_hash=HashedPasswordSHA256("d" * 64),
+            role=DomainUserRole.USER,
             is_active=True,
         )
         saved = await repo.save(entity)
@@ -67,6 +71,7 @@ class TestUserRepositoryIntegration:
             id="",
             username=UserName("erin"),
             password_hash=HashedPasswordSHA256("e" * 64),
+            role=DomainUserRole.USER,
             is_active=False,
         )
         await repo.save(entity)

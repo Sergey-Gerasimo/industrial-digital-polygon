@@ -2,8 +2,8 @@ import pytest
 from uuid import UUID, uuid4
 
 from infra.database.repositories.user_reposytory import UserRepository
-from infra.database.models import User as UserModel
-from domain.entities.base.user import User
+from infra.database.models import User as UserModel, UserRole
+from domain.entities.base.user import User, UserRole as DomainUserRole
 from domain.values.Username import UserName
 from domain.values.hashed_password import HashedPasswordSHA256
 
@@ -18,6 +18,7 @@ class TestUserRepositoryUnit:
             id="3fa85f64-5717-4562-b3fc-2c963f66afa6",
             username=UserName("alice"),
             password_hash=HashedPasswordSHA256("a" * 64),
+            role=DomainUserRole.USER,
             is_active=True,
         )
 
@@ -27,6 +28,7 @@ class TestUserRepositoryUnit:
         assert model.username == "alice"
         assert model.hashed_password == "a" * 64
         assert model.is_active is True
+        assert model.role == UserRole.USER
         assert isinstance(model.id, UUID)
 
     def test_to_entity_converts_db_model_to_domain(self):
@@ -36,6 +38,7 @@ class TestUserRepositoryUnit:
         model = UserModel(
             username="bob",
             hashed_password="b" * 64,
+            role=UserRole.ADMIN,
             is_active=False,
         )
 
@@ -47,4 +50,5 @@ class TestUserRepositoryUnit:
         assert entity.username.value == "bob"
         assert entity.password_hash.value == "b" * 64
         assert entity.is_active is False
+        assert entity.role == DomainUserRole.ADMIN
         UUID(entity.id)
