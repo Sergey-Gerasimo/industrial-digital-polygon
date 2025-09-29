@@ -71,7 +71,9 @@ class JWTHandler:
         self.algorithm = algorithm
         self.secret_key = secret_key
 
-    def _create_token(self, subject: str, expires_in_minutes: int) -> str:
+    def _create_token(
+        self, subject: str, expires_in_minutes: int, extra_claims: dict | None = None
+    ) -> str:
         """
         Внутренняя функция для создания JWT токена.
 
@@ -85,9 +87,13 @@ class JWTHandler:
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         expiration_time = now + datetime.timedelta(minutes=expires_in_minutes)
         payload = {"exp": expiration_time, "sub": subject}
+        if extra_claims:
+            payload.update(extra_claims)
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
-    def create_access_token(self, subject: str, expires_delta: int = None):
+    def create_access_token(
+        self, subject: str, expires_delta: int = None, extra_claims: dict | None = None
+    ):
         """
         Создает JWT access токен для указанного субъекта.
 
@@ -121,10 +127,13 @@ class JWTHandler:
         if expires_delta is None:
             expires_delta = self.expire
 
-        return self._create_token(subject, expires_delta)
+        return self._create_token(subject, expires_delta, extra_claims)
 
     def create_refresh_token(
-        self, subject: Union[str, Any], expires_delta: int = None
+        self,
+        subject: Union[str, Any],
+        expires_delta: int = None,
+        extra_claims: dict | None = None,
     ) -> str:
         """
         Создает JWT refresh токен для указанного субъекта.
@@ -158,7 +167,7 @@ class JWTHandler:
         if expires_delta is None:
             expires_delta = self.expire
 
-        return self._create_token(subject, expires_delta)
+        return self._create_token(subject, expires_delta, extra_claims)
 
     def verify_token(self, token: str) -> Union[dict, None]:
         """
@@ -191,5 +200,6 @@ class JWTHandler:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except JWTError:
+        except JWTError as e:
+            app_logger.warning(f"JWT verification failed: {e}")
             return None
