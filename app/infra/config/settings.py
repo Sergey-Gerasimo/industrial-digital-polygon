@@ -92,6 +92,9 @@ class SecuritySettings(BaseSettingsWithValidation):
     access_token_expire_minutes: int = Field(
         default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
     )
+    refresh_token_expire_minutes: int = Field(
+        default=7 * 24 * 60, alias="REFRESH_TOKEN_EXPIRE_MINUTES"
+    )
 
     def validate_default_values(self, logger=None):
         """Специфичная валидация для настроек безопасности.
