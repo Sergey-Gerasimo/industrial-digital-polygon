@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Annotated
 from uuid import UUID as PyUUID, uuid4
 from sqlalchemy import String, event
@@ -17,17 +18,27 @@ UUID_PK = Annotated[
 created_at = Annotated[datetime, mapped_column(default=get_current_time)]
 
 
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID_PK]
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
     created_at: Mapped[datetime] = mapped_column(default=get_current_time)
     updated_at: Mapped[datetime] = mapped_column(
         default=get_current_time, onupdate=get_current_time
     )
     is_active: Mapped[bool] = mapped_column(default=True)
+
+    @property
+    def is_admin(self):
+        return self.role == UserRole.ADMIN
 
 
 @event.listens_for(User, "before_insert")

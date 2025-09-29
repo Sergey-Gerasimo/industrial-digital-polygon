@@ -28,7 +28,7 @@ from infra.database.repositories.base import BaseRepository
 from infra.database.models import User as UserModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.entities.base.user import User
+from domain.entities.base.user import User, UserRole
 from domain.values.hashed_password import HashedPasswordSHA256
 from domain.values.Username import UserName
 
@@ -70,6 +70,9 @@ class UserRepository(BaseRepository[User, UserModel]):
             id=str(model.id),
             username=UserName(model.username),
             password_hash=HashedPasswordSHA256(model.hashed_password),
+            role=(
+                UserRole(model.role.value) if hasattr(model, "role") else UserRole.USER
+            ),
             is_active=model.is_active,
         )
 
@@ -90,6 +93,11 @@ class UserRepository(BaseRepository[User, UserModel]):
                 entity.password_hash.value
                 if isinstance(entity.password_hash, HashedPasswordSHA256)
                 else str(entity.password_hash)
+            ),
+            "role": (
+                entity.role
+                if isinstance(entity.role, UserRole)
+                else UserRole(str(entity.role))
             ),
             "is_active": entity.is_active,
         }

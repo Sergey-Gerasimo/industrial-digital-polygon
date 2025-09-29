@@ -11,7 +11,13 @@ class User:
     id: str
     username: UserName
     password_hash: HashedPasswordSHA256
-    is_active: bool
+    role: "UserRole" = None
+    is_active: bool = True
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
 
 
 class PlayerRole(str, Enum):
