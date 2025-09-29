@@ -1,0 +1,13 @@
+name: Update Documentation
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'docs/**', '*.md' ]
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
