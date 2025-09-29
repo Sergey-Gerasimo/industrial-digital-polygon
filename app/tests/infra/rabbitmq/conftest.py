@@ -1,4 +1,3 @@
-# tests/infra/rabbitmq/conftest.py
 import pytest
 import asyncio
 import aio_pika
