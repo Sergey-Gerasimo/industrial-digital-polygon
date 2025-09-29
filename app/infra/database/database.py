@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from app.infra.config import settings as app_settings
+from infra.config import settings as app_settings
 
 
 async_engine = create_async_engine(
@@ -45,3 +45,8 @@ class Base(DeclarativeBase):
 async def create_tables(async_engine: AsyncEngine) -> None:
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def drop_tables(async_engine: AsyncEngine) -> None:
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
