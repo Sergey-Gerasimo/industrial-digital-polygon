@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domain.entities.base.user import User, UserRole
 from domain.values.hashed_password import HashedPasswordSHA256
 from domain.values.Username import UserName
+from infra.config import app_logger
 
 
 class UserRepository(BaseRepository[User, UserModel]):
@@ -129,7 +130,9 @@ class UserRepository(BaseRepository[User, UserModel]):
                 assert saved.id is not None
         """
         model = self._to_model(user)
+
         self._session.add(model)
+        await self._session.commit()
         await self._session.flush()
 
         # Возвращаем новую доменную сущность, не изменяя исходную (frozen dataclass)
@@ -167,6 +170,7 @@ class UserRepository(BaseRepository[User, UserModel]):
         """
         query = select(UserModel).where(UserModel.id == UUID(user_id))
         result = await self._session.execute(query)
+        await self._session.commit()
         model = result.scalar_one_or_none()
 
         if model:
@@ -185,6 +189,7 @@ class UserRepository(BaseRepository[User, UserModel]):
         """
         query = select(UserModel).where(UserModel.id == UUID(user_id))
         result = await self._session.execute(query)
+        await self._session.commit()
         model = result.scalar_one_or_none()
 
         return self._to_entity(model) if model else None
