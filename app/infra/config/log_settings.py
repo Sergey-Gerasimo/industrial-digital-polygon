@@ -1,5 +1,25 @@
 import sys
 from loguru import logger
+import logging
+
+
+class LoguruInterceptHandler(logging.Handler):
+    """Перехватывает логи стандартного logging и перенаправляет в loguru"""
+
+    def emit(self, record):
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
 
 
 class LoggerConfig:
@@ -133,6 +153,25 @@ class LoggerConfig:
         logger.info(
             f"Logger configured successfully (level: {log_level}, debug: {debug}, format: {log_format})"
         )
+
+        intercept_handler = LoguruInterceptHandler()
+        logging.root.handlers = [intercept_handler]
+        logging.root.setLevel(logging.INFO)
+
+        loggers = [
+            "uvicorn",
+            "uvicorn.access",
+            "uvicorn.error",
+            "fastapi",
+        ]
+
+        for logger_name in loggers:
+            logging_logger = logging.getLogger(logger_name)
+            logging_logger.handlers = [intercept_handler]
+            logging_logger.setLevel(logging.INFO)
+            logging_logger.propagate = False
+
+        logger.info("System logging configured with Loguru")
 
 
 # Глобальный инстанс логгера
