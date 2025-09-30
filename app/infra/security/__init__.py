@@ -15,10 +15,10 @@
         assert auth.verify_password("strongPass!42", hashed)
 """
 
-from .jwt_handler import JWTHandler
+from .jwt_handler import JWTHandler as JWTService
 from .authentication_service import PasswordAuthenticationService
 
 __all__ = [
-    "JWTHandler",
+    "JWTService",
     "PasswordAuthenticationService",
 ]

@@ -1,172 +1,75 @@
-"""
-DTO (Data Transfer Objects) для эндпоинтов регистрации и логина FastAPI.
-
-Содержит Pydantic-схемы для входящих и исходящих данных при регистрации и
-аутентификации пользователей.
-
-Пример:
-    Использование в FastAPI роутере::
-
-        from fastapi import APIRouter
-        from app.application.api.dto.auth_dto import (
-            RegisterUserRequest, RegisterUserResponse, LoginRequest, LoginResponse
-        )
-
-        router = APIRouter()
-
-        @router.post("/auth/register", response_model=RegisterUserResponse)
-        async def register(payload: RegisterUserRequest):
-            ...
-
-        @router.post("/auth/login", response_model=LoginResponse)
-        async def login(payload: LoginRequest):
-            ...
-"""
-
-from __future__ import annotations
-
-from datetime import datetime
+from pydantic import BaseModel, Field
 from typing import Optional
-from uuid import UUID
-
-from pydantic import BaseModel, Field, ConfigDict, constr, model_validator
-
-from infra.database.models import UserRole
+from datetime import datetime
+from enum import Enum
 
 
-UsernameStr = constr(min_length=3, max_length=50)
-PasswordStr = constr(min_length=8, max_length=255)
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
 
 
-class RegisterUserRequest(BaseModel):
-    """Входная схема данных для регистрации пользователя.
-
-    Args:
-        username: Имя пользователя (3-50 символов).
-        password: Пароль (минимум 8 символов).
-        password_confirm: Подтверждение пароля; должно совпадать с ``password``.
-
-    Raises:
-        ValueError: Если пароли не совпадают.
-    """
-
-    username: UsernameStr = Field(..., description="Имя пользователя")
-    password: PasswordStr = Field(..., description="Пароль")
-    password_confirm: PasswordStr = Field(..., description="Подтверждение пароля")
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "username": "alice",
-                    "password": "StrongPass!123",
-                    "password_confirm": "StrongPass!123",
-                }
-            ]
-        }
-    )
-
-    @model_validator(mode="after")
-    def _validate_passwords_match(self) -> "RegisterUserRequest":
-        if self.password != self.password_confirm:
-            raise ValueError("Пароли не совпадают")
-        return self
-
-
-class RegisterUserResponse(BaseModel):
-    """Выходная схема данных после регистрации пользователя.
-
-    Args:
-        id: Идентификатор пользователя (UUID).
-        username: Имя пользователя.
-        is_active: Флаг активности пользователя.
-        created_at: Дата создания пользователя.
-    """
-
-    id: UUID = Field(..., description="UUID пользователя")
-    username: str = Field(..., description="Имя пользователя")
-    is_active: bool = Field(True, description="Активен ли пользователь")
-    role: UserRole = Field(UserRole.USER, description="Роль пользователя")
-    created_at: Optional[datetime] = Field(None, description="Дата создания")
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "id": "7f3a2b7e-0d2e-4b2b-9a2a-2d4f7e9b5c1e",
-                    "username": "alice",
-                    "is_active": True,
-                    "created_at": "2025-01-01T12:00:00",
-                    "role": "user",
-                }
-            ]
-        }
-    )
+class BaseResponse(BaseModel):
+    success: bool = True
+    message: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class LoginRequest(BaseModel):
-    """Входная схема данных для логина.
+    username: str = Field(..., min_length=1, description="Username for login")
+    password: str = Field(..., min_length=1, description="Password for login")
 
-    Args:
-        username: Имя пользователя (3-50 символов).
-        password: Пароль (минимум 8 символов).
-    """
 
-    username: UsernameStr = Field(..., description="Имя пользователя")
-    password: PasswordStr = Field(..., description="Пароль")
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, description="Refresh token")
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [{"username": "alice", "password": "StrongPass!123"}]
-        }
+
+class TokenResponse(BaseResponse):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    refresh_expire_in: int
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(
+        ..., min_length=3, max_length=50, description="Username for registration"
+    )
+    password: str = Field(..., min_length=6, description="Password for registration")
+
+
+class AuthResponse(TokenResponse):
+    user: "UserResponse"
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, description="Current password")
+    new_password: str = Field(
+        ..., min_length=6, max_length=100, description="New password"
     )
 
 
-class LoginResponse(BaseModel):
-    """Выходная схема данных для успешной аутентификации.
-
-    Args:
-        access_token: Токен доступа (JWT).
-        token_type: Тип токена (обычно ``Bearer``).
-        expires_in: Время жизни токена в секундах (опционально).
-    """
-
-    access_token: str = Field(..., description="JWT токен доступа")
-    token_type: str = Field("Bearer", description="Тип токена")
-    expires_in: Optional[int] = Field(None, description="Время жизни токена в секундах")
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                    "token_type": "Bearer",
-                    "expires_in": 3600,
-                }
-            ]
-        }
-    )
+class ErrorResponse(BaseResponse):
+    success: bool = False
+    error: str
+    status_code: int
+    details: Optional[dict] = None
 
 
-class RefreshTokenRequest(BaseModel):
-    """Входная схема для обновления access токена.
-
-    Args:
-        refresh_token: Действительный refresh токен
-    """
-
-    refresh_token: str = Field(..., description="JWT refresh токен")
+class SuccessResponse(BaseResponse):
+    data: Optional[dict] = None
 
 
-class RefreshTokenResponse(BaseModel):
-    """Выходная схема данных для операции обновления токена.
+class LogoutResponse(BaseResponse):
+    message: str = "Successfully logged out"
 
-    Args:
-        access_token: Новый JWT токен доступа
-        token_type: Тип токена
-        expires_in: Время жизни токена в секундах (опционально)
-    """
 
-    access_token: str = Field(..., description="JWT токен доступа")
-    token_type: str = Field("Bearer", description="Тип токена")
-    expires_in: Optional[int] = Field(None, description="Время жизни токена в секундах")
+class MessageResponse(BaseResponse):
+    message: str
+
+
+from .user_dto import UserResponse
+
+# Обновляем AuthResponse после импорта UserResponse
+AuthResponse.model_rebuild()

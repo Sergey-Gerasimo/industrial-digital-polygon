@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from infra.database.database import AsyncSessionLocal
 from infra.database.repositories.user_reposytory import UserRepository
-from infra.security import PasswordAuthenticationService, JWTHandler
+from infra.security import PasswordAuthenticationService, JWTService
 from infra.config import settings
 from application.services import AuthApplicationService
 
@@ -20,7 +20,7 @@ def get_auth_service(
 ) -> AuthApplicationService:
     user_repo = UserRepository(session)
     password_service = PasswordAuthenticationService()
-    jwt_service = JWTHandler(
+    jwt_service = JWTService(
         access_token_expire_minutes=settings.secrurity.access_token_expire_minutes,
         refresh_token_expire_minutes=settings.secrurity.refresh_token_expire_minutes,
         secret_key=settings.secrurity.secret_key,

@@ -1,7 +1,11 @@
+from math import exp
+from typing import Optional
+from uuid import UUID
+from domain.entities.base import User
+from domain.values import UserName
+from domain.exceptions.user import InvalidCredentials, UserNotActive
 from infra.database.repositories import UserRepository
-from infra.security import PasswordAuthenticationService, JWTHandler
-from domain.entities.base.user import User, UserRole
-from domain.values.Username import UserName
+from infra.security import PasswordAuthenticationService, JWTService
 
 
 class AuthApplicationService:
@@ -9,62 +13,73 @@ class AuthApplicationService:
         self,
         user_repository: UserRepository,
         password_service: PasswordAuthenticationService,
-        jwt_service: JWTHandler,
+        jwt_service: JWTService,
     ):
-        self._user_reposytory = user_repository
+        self._user_repository = user_repository
         self._password_service = password_service
         self._jwt_service = jwt_service
 
-    async def login(self, username: str, password: str) -> str:
-        """Аутентифицирует пользователя и возвращает JWT токен с ролью.
+    async def authenticate_user(
+        self,
+        username: str,
+        password: str,
+        access_expire_in: Optional[int] = None,
+        refresh_expire_in: Optional[int] = None,
+    ) -> tuple[User, str, str]:
+        """Application operation for user authentication"""
+        username_value = UserName(username)
+        user = await self._user_repository.get_by_username(username_value)
 
-        Args:
-            username: Имя пользователя
-            password: Пароль в открытом виде
+        if not user:
+            raise InvalidCredentials()
 
-        Returns:
-            str: JWT access token, содержащий claim `role`
+        if not user.is_active:
+            raise UserNotActive(user_id=str(user.id))
 
-        Raises:
-            ValueError: Если пользователь не найден или пароль неверный
-        """
-        user = await self._user_reposytory.get_by_username(UserName(username))
-        if user is None:
-            raise ValueError("Invalid credentials")
-
-        if not self._password_service.verify_password(password, user.password_hash):
-            raise ValueError("Invalid credentials")
-        return self._jwt_service.create_access_token(
-            user.id, extra_claims={"role": user.role.value}
+        password_valid = self._password_service.verify_password(
+            password, user.password_hash.value
         )
 
-    async def register(self, username: str, password: str) -> str:
-        """Регистрирует пользователя и возвращает JWT токен с ролью.
-
-        Args:
-            username: Имя пользователя
-            password: Пароль в открытом виде
-
-        Returns:
-            str: JWT access token, содержащий claim `role`
-
-        Raises:
-            ValueError: Если пользователь с таким именем уже существует
-        """
-        user_name_vo = UserName(username)
-        exists = await self._user_reposytory.exists_with_username(user_name_vo)
-        if exists:
-            raise ValueError("Username already taken")
-
-        password_hash = self._password_service.hash_password(password)
-        new_user = User(
-            username=user_name_vo,
-            password_hash=password_hash,
-            role=UserRole.USER,
-            is_active=True,
+        if not password_valid:
+            raise InvalidCredentials()
+        # Generate tokens
+        access_token = self._jwt_service.create_access_token(
+            subject=str(user.id), expires_delta=access_expire_in
+        )
+        refresh_token = self._jwt_service.create_refresh_token(
+            subject=str(user.id), expires_delta=refresh_expire_in
         )
 
-        saved_user = await self._user_reposytory.save(new_user)
-        return self._jwt_service.create_access_token(
-            saved_user.id, extra_claims={"role": saved_user.role.value}
+        return user, access_token, refresh_token
+
+    async def refresh_tokens(
+        self,
+        refresh_token: str,
+        access_expire_in: Optional[int] = None,
+        refresh_expire_in: Optional[int] = None,
+    ) -> tuple[str, str]:
+        """Application operation for refreshing tokens"""
+        user_id = self._jwt_service.validate_refresh_token(refresh_token)
+        user = await self._user_repository.get_by_id(UUID(user_id))
+
+        if not user or not user.is_active:
+            raise InvalidCredentials()
+
+        new_access_token = self._jwt_service.create_access_token(
+            subject=str(user.id), expires_delta=access_expire_in
         )
+        new_refresh_token = self._jwt_service.create_refresh_token(
+            subject=str(user.id), expires_delta=refresh_expire_in
+        )
+
+        return new_access_token, new_refresh_token
+
+    async def get_current_user(self, token: str) -> User:
+        """Application operation for getting current user from token"""
+        user_id = self._jwt_service.validate_access_token(token)
+        user = await self._user_repository.get_by_id(UUID(user_id))
+
+        if not user or not user.is_active:
+            raise InvalidCredentials()
+
+        return user
