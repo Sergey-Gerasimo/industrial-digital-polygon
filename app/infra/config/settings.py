@@ -391,6 +391,7 @@ class Settings(BaseSettingsWithValidation):
     postgres: DatabaseSettings = Field(default_factory=DatabaseSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
     rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
+    superuser: SuperUserSettings = Field(default_factory=SuperUserSettings)
 
     def validate_default_values(self, logger=None):
         """Рекурсивная валидация всех вложенных настроек.
