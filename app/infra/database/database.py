@@ -40,13 +40,3 @@ class Base(DeclarativeBase):
                 cols.append(f"{col}={getattr(self, col)}")
 
         return f"<{self.__class__.__name__} {', '.join(cols)}>"
-
-
-async def create_tables(async_engine: AsyncEngine) -> None:
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-async def drop_tables(async_engine: AsyncEngine) -> None:
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
