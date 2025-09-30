@@ -67,6 +67,14 @@ class BaseSettingsWithValidation(BaseSettings):
         return self
 
 
+class SuperUserSettings(BaseSettingsWithValidation):
+    """Настройки суперпользователя."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+    username: str = Field(default="superuser", alias="SUPERUSER_USERNAME")
+    password: str = Field(default="superuser", alias="SUPERUSER_PASSWORD")
+
+
 class SecuritySettings(BaseSettingsWithValidation):
     """Настройки безопасности приложения.
 
