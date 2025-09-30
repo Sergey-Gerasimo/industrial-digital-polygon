@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.base.user import User, UserRole
 from domain.values.hashed_password import HashedPasswordSHA256
-from domain.values.Username import UserName
+from domain.values.username import UserName
 from infra.config import app_logger
 
 
@@ -75,6 +75,8 @@ class UserRepository(BaseRepository[User, UserModel]):
                 UserRole(model.role.value) if hasattr(model, "role") else UserRole.USER
             ),
             is_active=model.is_active,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
         )
 
     def _to_model(self, entity: User) -> UserModel:
@@ -96,9 +98,9 @@ class UserRepository(BaseRepository[User, UserModel]):
                 else str(entity.password_hash)
             ),
             "role": (
-                entity.role
+                entity.role.value
                 if isinstance(entity.role, UserRole)
-                else UserRole(str(entity.role))
+                else UserRole(str(entity.role.value))
             ),
             "is_active": entity.is_active,
         }
@@ -132,8 +134,8 @@ class UserRepository(BaseRepository[User, UserModel]):
         model = self._to_model(user)
 
         self._session.add(model)
-        await self._session.commit()
         await self._session.flush()
+        await self._session.commit()
 
         # Возвращаем новую доменную сущность, не изменяя исходную (frozen dataclass)
         return self._to_entity(model)
