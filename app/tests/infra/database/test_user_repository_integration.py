@@ -3,7 +3,7 @@ from uuid import UUID
 
 from infra.database.repositories.user_reposytory import UserRepository
 from domain.entities.base.user import User
-from domain.values.Username import UserName
+from domain.values.username import UserName
 from domain.values.hashed_password import HashedPasswordSHA256
 from domain.entities.base.user import UserRole as DomainUserRole
 

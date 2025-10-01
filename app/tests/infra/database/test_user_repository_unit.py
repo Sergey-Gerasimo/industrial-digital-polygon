@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from infra.database.repositories.user_reposytory import UserRepository
 from infra.database.models import User as UserModel, UserRole
 from domain.entities.base.user import User, UserRole as DomainUserRole
-from domain.values.Username import UserName
+from domain.values.username import UserName
 from domain.values.hashed_password import HashedPasswordSHA256
 
 
