@@ -52,7 +52,8 @@ def create_app():
 
     app = FastAPI(
         title="Industrial-Digital-Polygon",
-        docs_url="/api/docs",
+        docs_url="/docs",
+        root_path="/api",
         description="Цифровой полигон: где станки общаются JSON'ом, а сменный мастер требует 'сделать красиво'",
         lifespan=lifespan,
     )
