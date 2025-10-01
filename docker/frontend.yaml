@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  frontend-dev:
+    build: ../frontend
+    container_name: frontend-dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+    environment:
+      - REACT_APP_API_URL=/api 
+      - CHOKIDAR_USEPOLLING=true
+
+networks:
+  backend-dev:
+    external: true
+    driver: bridge
