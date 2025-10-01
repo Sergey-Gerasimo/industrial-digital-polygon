@@ -1,0 +1,33 @@
+services:
+  # Nginx Proxy
+  nginx:
+    container_name: nginx_proxy
+    image: nginx:alpine
+    ports:
+      - '80:80'
+      - '443:443'  # для HTTPS
+    environment:
+      NGINX_ENV: ${NGINX_ENV:-production}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../frontend/build:/var/www/frontend:ro
+      - ./ssl:/etc/ssl/certs:ro  # для SSL сертификатов
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - backend-dev
+
+    depends_on:
+      - frontend-dev
+      - backend
+      
+
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  backend-dev:
+    external: true
+    driver: bridge
