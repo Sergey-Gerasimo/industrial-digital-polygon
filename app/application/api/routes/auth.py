@@ -111,7 +111,7 @@ async def login(
         )
 
         logger.debug(f"Authentication successful for {user.username=} with {user.id=}")
-        logger.debug(f"JWT tokens generated for {user.username=}")
+        logger.debug(f"JWT tokens generated for {user.username=} JWT: {access_token}")
         logger.info(f"User {user.username} logged in successfully")
 
         return AuthResponse(
@@ -119,7 +119,7 @@ async def login(
             refresh_token=refresh_token,
             user=UserResponse.from_entity(user),
             message="Login successful",
-            access_expire_in=settings.secrurity.access_token_expire_minutes,
+            expires_in=settings.secrurity.access_token_expire_minutes,
             refresh_expire_in=settings.secrurity.refresh_token_expire_minutes,
         )
     except InvalidCredentials:
@@ -157,7 +157,7 @@ async def refresh_token(
             access_token=access_token,
             refresh_token=refresh_token,
             message="Token refreshed successfully",
-            access_expire_in=settings.secrurity.access_token_expire_minutes,
+            expires_in=settings.secrurity.access_token_expire_minutes,
             refresh_expire_in=settings.secrurity.refresh_token_expire_minutes,
         )
     except InvalidCredentials:
@@ -204,7 +204,8 @@ async def get_current_user_info(
         f"Fetching current user info for {current_user.username=} with {current_user.id=}"
     )
     logger.info(f"User info retrieved for {current_user.username}")
-    return current_user
+
+    return UserResponse.from_entity(current_user)
 
 
 @router.post("/verify-token", response_model=SuccessResponse)
@@ -232,8 +233,8 @@ async def change_password(
             f"Starting password change for {current_user.username=} with {current_user.id=}"
         )
 
-        await user_service.update_user_password(
-            user_id=current_user.id, new_password=password_data.new_password
+        await user_service.update(
+            user_id=current_user.id, password=password_data.new_password
         )
 
         logger.debug(f"Password updated successfully for {current_user.username=}")

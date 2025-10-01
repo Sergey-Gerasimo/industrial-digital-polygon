@@ -36,7 +36,7 @@ async def get_current_user_profile(
     )
     logger.info(f"Profile retrieved for {current_user.username}")
 
-    return current_user
+    return UserResponse.from_entity(current_user)
 
 
 @router.put("/me", response_model=UserResponse)
@@ -57,8 +57,8 @@ async def update_current_user_profile(
                 f"Updating username from {current_user.username} to {update_data.username}"
             )
 
-            user = await user_service.update_user_username(
-                user_id=current_user.id, new_username=update_data.username
+            user = await user_service.update(
+                user_id=current_user.id, username=update_data.username
             )
 
             logger.debug(f"Username updated successfully to {user.username=}")
@@ -100,8 +100,8 @@ async def change_current_user_password(
             f"Starting password change for {current_user.username=} with {current_user.id=}"
         )
 
-        await user_service.update_user_password(
-            user_id=current_user.id, new_password=password_data.new_password
+        await user_service.update(
+            user_id=current_user.id, password=password_data.new_password
         )
 
         logger.debug(f"Password updated successfully for {current_user.username=}")
@@ -120,7 +120,8 @@ async def change_current_user_password(
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     command: CreateUserCommand,
-    user_service: UserApplicationService = Depends(require_admin),
+    user_service: UserApplicationService = Depends(get_user_service),
+    current_user: UserResponse = Depends(get_current_user),
     logger: Logger = Depends(get_logger),
 ):
     """Register new user"""
@@ -128,7 +129,7 @@ async def create_user(
         logger.debug(
             f"Admin creating user with {command.username=} and {command.role=}"
         )
-        user = await user_service.create_user(
+        user = await user_service.create(
             username=command.username,
             password=command.password,
             role=command.role,
@@ -161,13 +162,9 @@ async def get_users_list(
             f"Admin fetching users list with {is_active=} {role=} {limit=} {offset=}"
         )
 
-        users = await user_service.list_users(limit=limit, offset=offset)
-
-        # Filtering (in real app this would be in repository)
-        if is_active is not None:
-            users = [user for user in users if user.is_active == is_active]
-        if role is not None:
-            users = [user for user in users if user.role == role]
+        users, total = await user_service.list(
+            limit=limit, offset=offset, is_active=is_active, role=role
+        )
 
         user_responses = [UserResponse.from_entity(user) for user in users]
 
@@ -176,10 +173,11 @@ async def get_users_list(
 
         return UserListResponse(
             users=user_responses,
-            total=len(user_responses),
-            page=offset // limit + 1,
+            total=total,
+            page=offset // limit + 1 if limit > 0 else 1,
             size=limit,
         )
+
     except Exception as e:
         logger.error(f"Error retrieving users list: {e}")
         raise HTTPException(
@@ -200,8 +198,7 @@ async def get_user_by_id(
     try:
         logger.debug(f"Admin fetching user by ID: {user_id=}")
 
-        user = await user_service.get_user_by_id(user_id)
-
+        user = await user_service.get(user_id=user_id)
         logger.debug(f"User found: {user.username=} with {user.id=}")
         logger.info(f"Admin retrieved user {user.username} by ID")
 
@@ -231,9 +228,7 @@ async def update_user_username(
             f"Admin updating username for {user_id=} to {command.new_username=}"
         )
 
-        user = await user_service.update_user_username(
-            user_id=user_id, new_username=command.new_username
-        )
+        user = await user_service.update(user_id=user_id, username=command.new_username)
 
         logger.debug(f"Username updated successfully to {user.username=}")
         logger.info(f"Admin updated username to {user.username} for user ID {user_id}")
@@ -268,9 +263,7 @@ async def update_user_password(
     try:
         logger.debug(f"Admin updating password for {user_id=}")
 
-        await user_service.update_user_password(
-            user_id=user_id, new_password=command.new_password
-        )
+        await user_service.update(user_id=user_id, password=command.new_password)
 
         logger.debug(f"Password updated successfully for {user_id=}")
         logger.info(f"Admin updated password for user ID {user_id}")
@@ -299,9 +292,7 @@ async def update_user_role(
     try:
         logger.debug(f"Admin updating role for {user_id=} to {command.new_role=}")
 
-        user = await user_service.update_user_role(
-            user_id=user_id, new_role=command.new_role
-        )
+        user = await user_service.update(user_id=user_id, role=command.new_role)
 
         logger.debug(f"Role updated successfully to {user.role=}")
         logger.info(f"Admin updated role to {user.role} for user ID {user_id}")
@@ -329,7 +320,7 @@ async def deactivate_user(
     try:
         logger.debug(f"Admin deactivating user: {user_id=}")
 
-        user = await user_service.deactivate_user(user_id)
+        user = await user_service.update(user_id, is_active=False)
 
         logger.debug(
             f"User deactivated successfully: {user.username=} with {user.is_active=}"
@@ -359,7 +350,10 @@ async def activate_user(
     try:
         logger.debug(f"Admin activating user: {user_id=}")
 
-        user = await user_service.activate_user(user_id)
+        user = await user_service.update(
+            user_id,
+            is_active=True,
+        )
 
         logger.debug(
             f"User activated successfully: {user.username=} with {user.is_active=}"
@@ -387,7 +381,7 @@ async def delete_user(
     try:
         logger.debug(f"Admin deleting user: {user_id=}")
 
-        success = await user_service.delete_user(user_id)
+        success = await user_service.delete(user_id)
 
         if success:
             logger.debug(f"User deleted successfully: {user_id=}")

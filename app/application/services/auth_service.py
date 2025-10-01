@@ -37,7 +37,7 @@ class AuthApplicationService:
             raise UserNotActive(user_id=str(user.id))
 
         password_valid = self._password_service.verify_password(
-            password, user.password_hash.value
+            password, user.password_hash
         )
 
         if not password_valid:

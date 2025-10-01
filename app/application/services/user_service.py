@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from infra.database.repositories.user_reposytory import UserRepository
 from infra.security import PasswordAuthenticationService
@@ -39,10 +39,21 @@ class UserApplicationService:
     async def get_by_username(self, username: str) -> Optional[User]:
         return await self._user_repository.get_by_username(UserName(username))
 
-    async def list(self, limit: int = 50, offset: int = 0) -> List[User]:
+    async def list(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        is_active: Optional[bool] = None,
+        role: Optional[UserRole] = None,
+    ) -> Tuple[List[User], int]:
         # Простейшая реализация на базе прямого select в репозитории пока отсутствует.
         # Для полноты можно добавить метод в репозиторий; временно вернём пустой список.
-        return []
+        return await self._user_repository.get_all(
+            limit=limit,
+            offset=offset,
+            is_active=is_active,
+            role=role,
+        )
 
     async def update(
         self,
