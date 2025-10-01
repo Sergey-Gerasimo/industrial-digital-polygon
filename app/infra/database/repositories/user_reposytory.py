@@ -22,8 +22,9 @@ CRUD.
             assert fetched is not None
 """
 
+from typing import Optional, List, Tuple
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from infra.database.repositories.base import BaseRepository
 from infra.database.models import User as UserModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -112,6 +113,32 @@ class UserRepository(BaseRepository[User, UserModel]):
 
         return UserModel(**model_kwargs)
 
+    async def _create(self, user: User) -> User:
+        model = self._to_model(user)
+
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)  # Получаем сгенерированные поля
+        await self._session.commit()
+
+        return self._to_entity(model)
+
+    async def _update(self, user: User) -> User:
+        model = await self._session.get(UserModel, user.id)
+        if model is None:
+            raise ValueError(f"User with id {user.id} not found")
+
+        model.username = user.username.value
+        model.hashed_password = user.password_hash.value
+        model.is_active = user.is_active
+        model.role = user.role
+
+        await self._session.flush()
+        await self._session.refresh(model)
+        await self._session.commit()
+
+        return self._to_entity(model)
+
     async def save(self, user: User) -> User:
         """Сохраняет пользователя (создание или обновление).
 
@@ -131,20 +158,15 @@ class UserRepository(BaseRepository[User, UserModel]):
                 saved = await repo.save(user)
                 assert saved.id is not None
         """
-        model = self._to_model(user)
-
-        self._session.add(model)
-        await self._session.flush()
-        await self._session.commit()
-
-        # Возвращаем новую доменную сущность, не изменяя исходную (frozen dataclass)
-        return self._to_entity(model)
+        if user.id is None:
+            # Создание нового пользователя
+            return await self._create(user)
+        else:
+            # Обновление существующего пользователя
+            return await self._update(user)
 
     async def update(self, user: User) -> User:
         """Обновляет пользователя.
-
-        По факту вызывает :py:meth:`save`, так как сохранение покрывает
-        сценарии обновления всех полей сущности.
 
         Args:
             user: Доменная сущность пользователя с изменёнными полями.
@@ -152,8 +174,10 @@ class UserRepository(BaseRepository[User, UserModel]):
         Returns:
             Обновлённая доменная сущность пользователя.
         """
-        # Возможно, этот метод не нужен, так как save обновляет все поля
-        return await self.save(user)
+        if user.id is None:
+            raise ValueError("Cannot update user without ID")
+
+        return await self._update(user)
 
     async def delete(self, user_id: str) -> bool:
         """Удаляет пользователя по идентификатору.
@@ -189,11 +213,7 @@ class UserRepository(BaseRepository[User, UserModel]):
         Returns:
             Объект ``User`` или ``None``, если запись не найдена.
         """
-        query = select(UserModel).where(UserModel.id == UUID(user_id))
-        result = await self._session.execute(query)
-        await self._session.commit()
-        model = result.scalar_one_or_none()
-
+        model = await self._session.get(UserModel, user_id)
         return self._to_entity(model) if model else None
 
     async def get_by_username(self, username: UserName) -> User | None:
@@ -229,3 +249,67 @@ class UserRepository(BaseRepository[User, UserModel]):
         query = select(UserModel.id).where(UserModel.username == username.value)
         result = await self._session.execute(query)
         return result.scalar_one_or_none() is not None
+
+    async def get_all(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        is_active: Optional[bool] = None,
+        role: Optional[UserRole] = None,
+    ) -> List[User]:
+        """Возвращает список пользователей с пагинацией и фильтрацией.
+
+        Args:
+            limit: Максимальное количество пользователей для возврата.
+            offset: Смещение для пагинации.
+            is_active: Фильтр по активности пользователя.
+            role: Фильтр по роли пользователя.
+
+        Returns:
+            Кортеж (список пользователей, общее количество).
+
+        Example:
+            Получение активных пользователей::
+
+                users, total = await repo.get_all_users(
+                    limit=10,
+                    offset=0,
+                    is_active=True,
+                    role=UserRole.USER
+                )
+        """
+        # Базовый запрос для получения данных
+        base_query = select(UserModel)
+
+        # Применяем фильтры
+        conditions = []
+
+        if is_active is not None:
+            conditions.append(UserModel.is_active == is_active)
+
+        if role is not None:
+            conditions.append(UserModel.role == role)
+
+        if conditions:
+            base_query = base_query.where(and_(*conditions))
+
+        # Запрос для получения общего количества (без пагинации)
+        count_query = select(func.count()).select_from(UserModel)
+        if conditions:
+            count_query = count_query.where(and_(*conditions))
+
+        # Выполняем запрос на количество
+        count_result = await self._session.execute(count_query)
+        total = count_result.scalar_one()
+
+        # Запрос для получения данных с пагинацией
+        data_query = base_query.offset(offset).limit(limit)
+
+        # Выполняем запрос на данные
+        result = await self._session.execute(data_query)
+        models = result.scalars().all()
+
+        # Преобразуем модели в сущности
+        users = [self._to_entity(model) for model in models]
+
+        return users, total

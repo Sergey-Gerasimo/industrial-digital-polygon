@@ -6,6 +6,7 @@ from sqlalchemy import String, event
 from sqlalchemy.dialects.postgresql import UUID as SAUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from infra.database import Base
+from domain.enums import UserRole
 
 
 get_current_time = lambda: datetime.now(timezone.utc).replace(tzinfo=None)
@@ -16,11 +17,6 @@ UUID_PK = Annotated[
     mapped_column(SAUUID(as_uuid=True), default=uuid4, primary_key=True),
 ]
 created_at = Annotated[datetime, mapped_column(default=get_current_time)]
-
-
-class UserRole(str, Enum):
-    ADMIN = "admin"
-    USER = "user"
 
 
 class User(Base):
