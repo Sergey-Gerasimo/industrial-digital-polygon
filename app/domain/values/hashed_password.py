@@ -134,7 +134,7 @@ class HashedPasswordSHA256(BaseValueObject):
             HashedPasswordSHA256: Новый экземпляр с хэшированным паролем
 
         Вызывает:
-            ValueError: Если пароль пустой или короче 8 символов
+            ValueError: Если пароль пустой или короче 4 символов
 
         Пример:
             >>> hashed_pw = HashedPasswordSHA256.from_plain_password("strongpassword")
@@ -147,8 +147,8 @@ class HashedPasswordSHA256(BaseValueObject):
 
         if not plain_password:
             raise ValueError("Password cannot be empty")
-        if len(plain_password) < 8:
-            raise ValueError("Password must be at least 8 characters long")
+        if len(plain_password) < 4:
+            raise ValueError("Password must be at least 4 characters long")
 
         hashed = hashlib.sha256(plain_password.encode()).hexdigest()
         return cls(hashed)
